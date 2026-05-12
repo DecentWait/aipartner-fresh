@@ -1,7 +1,7 @@
 ﻿# AIPartner v1.0 Stable
 
-AIPartner 是本地优先的 Windows 长期 AI 伙伴，支持长期记忆、分段摘要、上下文预算、每会话模型设置、流式输出和 TXT 附件。
-Local-first Windows desktop AI partner with long-term memory, segmented summaries, context budgeting, per-chat model settings, streaming responses, and TXT attachment support.
+AIPartner 是本地优先的 Windows 长期 AI 伙伴（DeepSeek 优先，兼容 OpenAI/Ollama）：支持长期记忆、分段摘要、上下文预算、每会话模型与固定指令、流式回复和 TXT 附件，数据全本地可备份可迁移。
+Local-first Windows long-term AI partner (DeepSeek-first, compatible with OpenAI/Ollama): long-term memory, segmented summaries, context budgeting, per-chat model/system prompts, streaming responses, and TXT attachments, with fully local portable data.
 文档同步日期：2026-05-12（已覆盖当前实现功能）。
 
 ## 技术栈
