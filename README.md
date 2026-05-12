@@ -1,6 +1,7 @@
 ﻿# AIPartner v1.0 Stable
 
-AIPartner 是一个本地长期 AI 伙伴桌面应用（Windows），核心目标是长期陪伴、长期记忆、对话驱动的持续更新。
+AIPartner 是本地优先的 Windows 长期 AI 伙伴，支持长期记忆、分段摘要、上下文预算、每会话模型设置、流式输出和 TXT 附件。
+Local-first Windows desktop AI partner with long-term memory, segmented summaries, context budgeting, per-chat model settings, streaming responses, and TXT attachment support.
 文档同步日期：2026-05-12（已覆盖当前实现功能）。
 
 ## 技术栈
