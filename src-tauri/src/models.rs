@@ -34,6 +34,10 @@ pub struct Conversation {
   pub max_memory_items_override: Option<i64>,
   #[serde(default)]
   pub system_prompt: String,
+  #[serde(default)]
+  pub thinking_override: String,
+  #[serde(default)]
+  pub reasoning_effort_override: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -232,6 +236,8 @@ pub struct SetConversationChatSettingsInput {
   pub max_recent_messages_override: Option<i64>,
   pub max_memory_items_override: Option<i64>,
   pub system_prompt: Option<String>,
+  pub thinking_override: Option<String>,
+  pub reasoning_effort_override: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

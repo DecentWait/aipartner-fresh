@@ -38,6 +38,10 @@ AIPartner/
 - 分段摘要：`summaries` 分段压缩旧聊天，长会话不塞全历史。
 - Context Budget：`max_context_tokens / max_recent_messages / max_memory_items`。
 - 每会话固定指令与完整参数覆盖：`system_prompt + provider/model/base_url/temperature/max_tokens/max_context_tokens/max_recent_messages/max_memory_items`。
+- DeepSeek 定向优化（最小实现）：
+  - 每会话 `thinking` 覆盖（`enabled/disabled`）
+  - 每会话 `reasoning_effort` 覆盖（`high/max`）
+  - 仅对 `deepseek-v4-pro/deepseek-v4-flash` 生效，其他 provider 不受影响。
 
 ## 最小 txt 上传功能（会话附件）
 
@@ -71,7 +75,26 @@ AIPartner/
   - `max_recent_messages`
   - `max_memory_items`
   - `system_prompt`
+  - `thinking_override`（DeepSeek：`enabled/disabled`）
+  - `reasoning_effort_override`（DeepSeek：`high/max`）
 - 配置保存在 SQLite + `config/settings.json`，重启自动恢复。
+
+### DeepSeek thinking / reasoning_effort（当前实现）
+
+- 会话设置可保存：
+  - `thinking_override`：`enabled` / `disabled` / 空（空=回退默认）
+  - `reasoning_effort_override`：`high` / `max` / 空（空=回退默认）
+- 默认回退：
+  - `thinking` 默认 `enabled`
+  - `reasoning_effort` 默认 `high`
+- 生效范围：
+  - 仅在 provider=DeepSeek 且模型为 `deepseek-v4-pro` / `deepseek-v4-flash` 时注入请求。
+  - 其他模型/提供方不注入这两个参数。
+- 兼容处理：
+  - 当 `thinking=enabled` 时，不发送 `temperature`（避免“设置但不生效”的混淆）。
+- 当前边界：
+  - 已支持 `reasoning_content` 流式展示与保存。
+  - 尚未实现工具调用链路（`tools/tool_calls/role=tool`），因此未启用“工具调用场景下必须回传 reasoning_content”的完整协议流转。
 
 ## 记忆层规则（global / conversation / 来源）
 
@@ -112,6 +135,8 @@ AIPartner/
   - `conversation.max_recent_messages` 为空 -> 用全局 `max_recent_messages`
   - `conversation.max_memory_items` 为空 -> 用全局 `max_memory_items`
   - `conversation.system_prompt` 为空 -> 不注入会话固定指令
+  - `conversation.thinking_override` 为空 -> DeepSeek 使用默认 `enabled`
+  - `conversation.reasoning_effort_override` 为空 -> DeepSeek 使用默认 `high`
 - `api_key` 继续使用全局 provider 配置，不做每会话独立 key。
 
 ### 上下文注入优先级（当前实现）
@@ -211,7 +236,7 @@ cargo tauri build
 6. 模型配置
 - 全局配置：`provider/model/base_url/api_key/temperature/max_tokens`。
 - provider：`deepseek/openai/openrouter/ollama/custom`。
-- 每会话独立覆盖：`provider/model/base_url/temperature/max_tokens/max_context_tokens/max_recent_messages/max_memory_items/system_prompt`。
+- 每会话独立覆盖：`provider/model/base_url/temperature/max_tokens/max_context_tokens/max_recent_messages/max_memory_items/system_prompt/thinking_override/reasoning_effort_override`。
 - 保存后立即生效，重启自动恢复（SQLite + `config/settings.json`）。
 
 7. 长期记忆与画像

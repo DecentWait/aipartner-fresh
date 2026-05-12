@@ -46,6 +46,8 @@ export const commands = {
     max_recent_messages_override: number | null,
     max_memory_items_override: number | null,
     system_prompt: string | null,
+    thinking_override: string | null,
+    reasoning_effort_override: string | null,
   ) =>
     invoke("set_conversation_chat_settings", {
       input: {
@@ -59,6 +61,8 @@ export const commands = {
         max_recent_messages_override,
         max_memory_items_override,
         system_prompt,
+        thinking_override,
+        reasoning_effort_override,
       },
     }),
   listMessages: (conversation_id: string, limit = 200, offset = 0) =>

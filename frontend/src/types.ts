@@ -22,6 +22,8 @@ export interface Conversation {
   max_recent_messages_override?: number | null;
   max_memory_items_override?: number | null;
   system_prompt?: string;
+  thinking_override?: string;
+  reasoning_effort_override?: string;
 }
 
 export interface Message {

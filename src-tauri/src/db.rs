@@ -12,7 +12,7 @@ use crate::models::{
   UserProfile,
 };
 
-const LATEST_SCHEMA_VERSION: i64 = 11;
+const LATEST_SCHEMA_VERSION: i64 = 12;
 
 fn now_iso() -> String {
   Utc::now().to_rfc3339()
@@ -575,6 +575,22 @@ fn apply_migration_v11(conn: &Connection) -> Result<()> {
   Ok(())
 }
 
+fn apply_migration_v12(conn: &Connection) -> Result<()> {
+  ensure_column(
+    conn,
+    "conversations",
+    "thinking_override",
+    "TEXT NOT NULL DEFAULT ''",
+  )?;
+  ensure_column(
+    conn,
+    "conversations",
+    "reasoning_effort_override",
+    "TEXT NOT NULL DEFAULT ''",
+  )?;
+  Ok(())
+}
+
 pub struct Database {
   path: PathBuf,
   conn: Mutex<Connection>,
@@ -643,6 +659,7 @@ impl Database {
           9 => apply_migration_v9(&conn)?,
           10 => apply_migration_v10(&conn)?,
           11 => apply_migration_v11(&conn)?,
+          12 => apply_migration_v12(&conn)?,
           _ => {}
         }
         conn.execute(
@@ -1097,6 +1114,7 @@ impl Database {
         c.model_override,c.is_pinned,
         c.provider_override,c.base_url_override,c.temperature_override,c.max_tokens_override,
         c.max_context_tokens_override,c.max_recent_messages_override,c.max_memory_items_override,c.system_prompt,
+        c.thinking_override,c.reasoning_effort_override,
         (SELECT COUNT(1) FROM messages m WHERE m.conversation_id=c.id AND m.deleted_at IS NULL) AS message_count
       FROM conversations c
       WHERE (?1='' OR c.title LIKE ?2)
@@ -1120,7 +1138,9 @@ impl Database {
         max_recent_messages_override: r.get::<_, Option<i64>>(11).ok().flatten(),
         max_memory_items_override: r.get::<_, Option<i64>>(12).ok().flatten(),
         system_prompt: r.get::<_, String>(13).unwrap_or_default(),
-        message_count: r.get(14)?,
+        thinking_override: r.get::<_, String>(14).unwrap_or_default(),
+        reasoning_effort_override: r.get::<_, String>(15).unwrap_or_default(),
+        message_count: r.get(16)?,
       })
     })?;
     Ok(rows.flatten().collect())
@@ -1141,7 +1161,7 @@ impl Database {
       .unwrap_or(1);
     let new_sort = top_unpinned - 1;
     conn.execute(
-      "INSERT INTO conversations(id,title,created_at,updated_at,model_override,provider_override,base_url_override,temperature_override,max_tokens_override,max_context_tokens_override,max_recent_messages_override,max_memory_items_override,system_prompt,is_pinned,sort_index) VALUES(?1,?2,?3,?3,'','','',NULL,NULL,NULL,NULL,NULL,'',0,?4)",
+      "INSERT INTO conversations(id,title,created_at,updated_at,model_override,provider_override,base_url_override,temperature_override,max_tokens_override,max_context_tokens_override,max_recent_messages_override,max_memory_items_override,system_prompt,thinking_override,reasoning_effort_override,is_pinned,sort_index) VALUES(?1,?2,?3,?3,'','','',NULL,NULL,NULL,NULL,NULL,'','','',0,?4)",
       params![id, title, now, new_sort],
     )?;
     normalize_conversation_sort_order_locked(&conn)?;
@@ -1161,6 +1181,8 @@ impl Database {
       max_recent_messages_override: None,
       max_memory_items_override: None,
       system_prompt: String::new(),
+      thinking_override: String::new(),
+      reasoning_effort_override: String::new(),
     })
   }
 
@@ -1273,9 +1295,13 @@ impl Database {
     max_recent_messages_override: Option<i64>,
     max_memory_items_override: Option<i64>,
     system_prompt: Option<&str>,
+    thinking_override: Option<&str>,
+    reasoning_effort_override: Option<&str>,
   ) -> Result<()> {
     let conn = self.conn.lock();
     let prompt = system_prompt.unwrap_or("").trim().to_string();
+    let thinking = thinking_override.unwrap_or("").trim().to_string();
+    let effort = reasoning_effort_override.unwrap_or("").trim().to_string();
     conn.execute(
       r#"
       UPDATE conversations
@@ -1289,8 +1315,10 @@ impl Database {
         max_recent_messages_override=?7,
         max_memory_items_override=?8,
         system_prompt=?9,
-        updated_at=?10
-      WHERE id=?11
+        thinking_override=?10,
+        reasoning_effort_override=?11,
+        updated_at=?12
+      WHERE id=?13
       "#,
       params![
         provider_override.trim(),
@@ -1302,6 +1330,8 @@ impl Database {
         max_recent_messages_override,
         max_memory_items_override,
         prompt,
+        thinking,
+        effort,
         now_iso(),
         conversation_id
       ],
@@ -1322,6 +1352,8 @@ impl Database {
     Option<i64>,
     Option<i64>,
     String,
+    String,
+    String,
   )> {
     let conn = self.conn.lock();
     let row: Option<(
@@ -1334,9 +1366,11 @@ impl Database {
       Option<i64>,
       Option<i64>,
       String,
+      String,
+      String,
     )> = conn
       .query_row(
-        "SELECT provider_override, model_override, base_url_override, temperature_override, max_tokens_override, max_context_tokens_override, max_recent_messages_override, max_memory_items_override, system_prompt FROM conversations WHERE id=?1 LIMIT 1",
+        "SELECT provider_override, model_override, base_url_override, temperature_override, max_tokens_override, max_context_tokens_override, max_recent_messages_override, max_memory_items_override, system_prompt, thinking_override, reasoning_effort_override FROM conversations WHERE id=?1 LIMIT 1",
         params![conversation_id],
         |r| {
           Ok((
@@ -1349,6 +1383,8 @@ impl Database {
             r.get(6).ok().flatten(),
             r.get(7).ok().flatten(),
             r.get::<_, String>(8).unwrap_or_default(),
+            r.get::<_, String>(9).unwrap_or_default(),
+            r.get::<_, String>(10).unwrap_or_default(),
           ))
         },
       )

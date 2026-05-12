@@ -266,6 +266,8 @@ export default function App() {
       (c.model_override || "").trim() !== "" ||
       (c.base_url_override || "").trim() !== "" ||
       (c.system_prompt || "").trim() !== "" ||
+      (c.thinking_override || "").trim() !== "" ||
+      (c.reasoning_effort_override || "").trim() !== "" ||
       c.temperature_override != null ||
       c.max_tokens_override != null ||
       c.max_context_tokens_override != null ||
@@ -291,6 +293,22 @@ export default function App() {
     if (!txt) return "none";
     return `set (${txt.length} chars)`;
   }, [currentConversation?.system_prompt]);
+  const activeThinkingLabel = useMemo(() => {
+    const provider = (currentConversation?.provider_override || settings?.chat.provider || "").trim().toLowerCase();
+    if (provider !== "deepseek") return "n/a";
+    const txt = (currentConversation?.thinking_override || "").trim().toLowerCase();
+    return txt || "enabled (default)";
+  }, [currentConversation?.provider_override, currentConversation?.thinking_override, settings?.chat.provider]);
+  const activeReasoningEffortLabel = useMemo(() => {
+    const provider = (currentConversation?.provider_override || settings?.chat.provider || "").trim().toLowerCase();
+    if (provider !== "deepseek") return "n/a";
+    const txt = (currentConversation?.reasoning_effort_override || "").trim().toLowerCase();
+    return txt || "high (default)";
+  }, [
+    currentConversation?.provider_override,
+    currentConversation?.reasoning_effort_override,
+    settings?.chat.provider,
+  ]);
 
   const stats = useMemo(() => {
     let tokenTotal = 0;
@@ -841,6 +859,16 @@ export default function App() {
       (currentConversation.system_prompt || "").trim(),
     );
     if (s === null) return;
+    const th = window.prompt(
+      "DeepSeek thinking override: enabled / disabled (empty = follow default)",
+      (currentConversation.thinking_override || "").trim(),
+    );
+    if (th === null) return;
+    const eff = window.prompt(
+      "DeepSeek reasoning effort override: high / max (empty = follow default)",
+      (currentConversation.reasoning_effort_override || "").trim(),
+    );
+    if (eff === null) return;
 
     const tempText = t.trim();
     const maxText = k.trim();
@@ -848,6 +876,8 @@ export default function App() {
     const recentText = r.trim();
     const memoryText = i.trim();
     const systemPromptText = s.trim();
+    const thinkingText = th.trim().toLowerCase();
+    const effortText = eff.trim().toLowerCase();
     let tempOverride: number | null = null;
     if (tempText) {
       const parsed = Number(tempText);
@@ -893,6 +923,14 @@ export default function App() {
       }
       maxMemoryItemsOverride = Math.floor(parsed);
     }
+    if (thinkingText && thinkingText !== "enabled" && thinkingText !== "disabled") {
+      setError("Invalid thinking override. Use enabled/disabled or empty.");
+      return;
+    }
+    if (effortText && effortText !== "high" && effortText !== "max") {
+      setError("Invalid reasoning effort override. Use high/max or empty.");
+      return;
+    }
 
     try {
       await commands.setConversationChatSettings(
@@ -906,6 +944,8 @@ export default function App() {
         maxRecentMessagesOverride,
         maxMemoryItemsOverride,
         systemPromptText || null,
+        thinkingText || null,
+        effortText || null,
       );
       staleConversationsRef.current[currentId] = true;
       await refreshConversations(queryRef.current);
@@ -1106,6 +1146,7 @@ export default function App() {
                   {activeRecentMessagesLabel} | max_memory_items {activeMemoryItemsLabel}
                 </p>
                 <p>Conversation system prompt: {activeSystemPromptLabel}</p>
+                <p>DeepSeek thinking: {activeThinkingLabel} | reasoning_effort: {activeReasoningEffortLabel}</p>
               </div>
               <div className="header-actions">
                 <button

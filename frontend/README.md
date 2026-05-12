@@ -20,6 +20,8 @@ npm.cmd run build
   - `temperature/max_tokens`
   - `max_context_tokens/max_recent_messages/max_memory_items`
   - `system_prompt`（会话固定指令）
+  - `thinking_override`（DeepSeek：`enabled/disabled`）
+  - `reasoning_effort_override`（DeepSeek：`high/max`）
 - 长期记忆查看与手动 global/conversation 标记。
 - 当前会话 `.txt` 附件最小入口：上传、列表、删除。
 
@@ -39,6 +41,13 @@ npm.cmd run build
 - 会话字段为空时，自动回退全局设置。
 - 会话字段有值时，只覆盖当前会话，不影响全局设置和其他会话。
 - `api_key` 仍通过全局 provider 管理，不做每会话独立保存。
+
+## DeepSeek 定向参数（当前实现）
+- 仅在 provider=DeepSeek 且模型为 `deepseek-v4-pro` / `deepseek-v4-flash` 时，后端会注入：
+  - `thinking`（enabled/disabled）
+  - `reasoning_effort`（high/max）
+- `thinking=enabled` 时不发送 `temperature`。
+- 当前未实现工具调用 UI/链路（`tools/tool_calls`），本项目仍以“长期对话伙伴”场景为主。
 
 ## txt 附件前端约束
 - 只允许 `.txt`。

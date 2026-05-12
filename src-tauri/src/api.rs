@@ -15,6 +15,8 @@ use crate::models::TokenUsage;
 pub struct ApiMessage {
   pub role: String,
   pub content: String,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub reasoning_content: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -24,6 +26,9 @@ pub struct ApiRuntimeConfig {
   pub model: String,
   pub temperature: f32,
   pub max_tokens: i64,
+  pub include_temperature: bool,
+  pub deepseek_thinking_type: Option<String>,
+  pub deepseek_reasoning_effort: Option<String>,
 }
 
 pub struct StreamCallbacks<FC, FR>
@@ -226,10 +231,18 @@ async fn create_stream_response(
   let mut body = json!({
     "model": config.model,
     "messages": messages,
-    "temperature": config.temperature,
     "max_tokens": config.max_tokens,
     "stream": true
   });
+  if config.include_temperature {
+    body["temperature"] = json!(config.temperature);
+  }
+  if let Some(t) = config.deepseek_thinking_type.as_deref() {
+    body["thinking"] = json!({ "type": t });
+  }
+  if let Some(eff) = config.deepseek_reasoning_effort.as_deref() {
+    body["reasoning_effort"] = json!(eff);
+  }
   if include_usage {
     body["stream_options"] = json!({ "include_usage": true });
   }
@@ -253,10 +266,19 @@ async fn create_non_stream_response(
   let body = json!({
     "model": config.model,
     "messages": messages,
-    "temperature": config.temperature,
     "max_tokens": config.max_tokens,
     "stream": false
   });
+  let mut body = body;
+  if config.include_temperature {
+    body["temperature"] = json!(config.temperature);
+  }
+  if let Some(t) = config.deepseek_thinking_type.as_deref() {
+    body["thinking"] = json!({ "type": t });
+  }
+  if let Some(eff) = config.deepseek_reasoning_effort.as_deref() {
+    body["reasoning_effort"] = json!(eff);
+  }
   let mut req = client
     .post(endpoint)
     .header("Content-Type", "application/json")

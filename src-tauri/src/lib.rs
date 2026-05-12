@@ -116,6 +116,45 @@ fn provider_requires_api_key(provider: &str) -> bool {
   matches!(provider, "deepseek" | "openai" | "openrouter")
 }
 
+fn normalize_thinking_override(input: &str) -> String {
+  match input.trim().to_lowercase().as_str() {
+    "enabled" => "enabled".to_string(),
+    "disabled" => "disabled".to_string(),
+    _ => String::new(),
+  }
+}
+
+fn normalize_reasoning_effort(input: &str) -> String {
+  match input.trim().to_lowercase().as_str() {
+    "max" => "max".to_string(),
+    "high" => "high".to_string(),
+    _ => String::new(),
+  }
+}
+
+fn should_replay_reasoning_content(provider: &str, model: &str, thinking_type: &str) -> bool {
+  let p = normalize_provider(provider);
+  if p != "deepseek" {
+    return false;
+  }
+  if model.trim().eq_ignore_ascii_case("deepseek-reasoner") {
+    return false;
+  }
+  if thinking_type.eq_ignore_ascii_case("enabled") {
+    // Current app does not support tool-call rounds yet; avoid replaying reasoning_content
+    // to keep compatibility with DeepSeek non-tool multi-turn behavior.
+    return false;
+  }
+  false
+}
+
+fn supports_deepseek_thinking_params(model: &str) -> bool {
+  matches!(
+    model.trim().to_lowercase().as_str(),
+    "deepseek-v4-pro" | "deepseek-v4-flash"
+  )
+}
+
 fn normalize_theme_mode(input: &str) -> &'static str {
   match input.trim().to_lowercase().as_str() {
     "light" => "light",
@@ -460,8 +499,8 @@ fn build_context_messages(
 ) -> Vec<ApiMessage> {
   let settings = state.db.get_chat_settings();
   let (
-    _provider_override,
-    _model_override,
+    provider_override,
+    model_override,
     _base_url_override,
     _temperature_override,
     _max_tokens_override,
@@ -469,10 +508,37 @@ fn build_context_messages(
     max_recent_messages_override,
     max_memory_items_override,
     system_prompt_override,
+    thinking_override,
+    _reasoning_effort_override,
   ) = state
     .db
     .get_conversation_chat_overrides(conversation_id)
     .unwrap_or_default();
+  let effective_provider = if provider_override.trim().is_empty() {
+    normalize_provider(&settings.provider)
+  } else {
+    normalize_provider(&provider_override)
+  };
+  let effective_model = if model_override.trim().is_empty() {
+    settings.model.trim().to_string()
+  } else {
+    model_override.trim().to_string()
+  };
+  let effective_thinking = if effective_provider == "deepseek" {
+    let thinking = normalize_thinking_override(&thinking_override);
+    if thinking.is_empty() {
+      "enabled".to_string()
+    } else {
+      thinking
+    }
+  } else {
+    String::new()
+  };
+  let replay_reasoning = should_replay_reasoning_content(
+    &effective_provider,
+    &effective_model,
+    &effective_thinking,
+  );
   let max_context_tokens = max_context_tokens_override
     .unwrap_or(settings.max_context_tokens)
     .clamp(2048, 128000);
@@ -503,12 +569,21 @@ fn build_context_messages(
     .map(|m| ApiMessage {
       role: m.role.clone(),
       content: clip(&m.content, 7000),
+      reasoning_content: if replay_reasoning
+        && m.role == "assistant"
+        && !m.reasoning_content.trim().is_empty()
+      {
+        Some(clip(&m.reasoning_content, 7000))
+      } else {
+        None
+      },
     })
     .collect();
 
   let current_user = ApiMessage {
     role: "user".to_string(),
     content: clip(user_text, current_input_chars),
+    reasoning_content: None,
   };
   let has_latest_user = recent_all
     .last()
@@ -633,6 +708,7 @@ fn build_context_messages(
   let mut out = vec![ApiMessage {
     role: "system".to_string(),
     content: clip(&sections.join("\n\n"), 32000),
+    reasoning_content: None,
   }];
   out.extend(required);
   out
@@ -661,6 +737,8 @@ async fn run_generation(
     _max_recent_messages_override,
     _max_memory_items_override,
     _system_prompt_override,
+    thinking_override,
+    reasoning_effort_override,
   ) = state
     .db
     .get_conversation_chat_overrides(&conversation_id)
@@ -689,6 +767,34 @@ async fn run_generation(
   let max_tokens = max_tokens_override
     .unwrap_or(settings.max_tokens)
     .clamp(256, 262_144);
+  let (deepseek_thinking_type, deepseek_reasoning_effort, include_temperature) =
+    if provider == "deepseek" && supports_deepseek_thinking_params(&model) {
+    let normalized_thinking = {
+      let v = normalize_thinking_override(&thinking_override);
+      if v.is_empty() {
+        "enabled".to_string()
+      } else {
+        v
+      }
+    };
+    let normalized_effort = {
+      let v = normalize_reasoning_effort(&reasoning_effort_override);
+      if v.is_empty() {
+        "high".to_string()
+      } else {
+        v
+      }
+    };
+    let include_temp = normalized_thinking != "enabled";
+      let effort_to_send = if normalized_thinking == "enabled" {
+        Some(normalized_effort)
+      } else {
+        None
+      };
+      (Some(normalized_thinking), effort_to_send, include_temp)
+    } else {
+      (None, None, true)
+    };
   let api_key = load_api_key(&state.db, &provider).unwrap_or_default();
   if provider_requires_api_key(&provider) && api_key.trim().is_empty() {
     return Err(format!(
@@ -735,6 +841,9 @@ async fn run_generation(
     model,
     temperature,
     max_tokens,
+    include_temperature,
+    deepseek_thinking_type,
+    deepseek_reasoning_effort,
   };
 
   let app_for_content = app.clone();
@@ -983,6 +1092,26 @@ fn set_conversation_chat_settings(
     .max_memory_items_override
     .map(|v| v.clamp(0, 16));
   let system_prompt = input.system_prompt.as_deref().map(str::trim);
+  let thinking_override = normalize_thinking_override(input.thinking_override.as_deref().unwrap_or(""));
+  let effort_override = normalize_reasoning_effort(input.reasoning_effort_override.as_deref().unwrap_or(""));
+  if input
+    .thinking_override
+    .as_deref()
+    .map(str::trim)
+    .map(|v| !v.is_empty() && thinking_override.is_empty())
+    .unwrap_or(false)
+  {
+    return Err("Invalid thinking_override, use enabled/disabled or empty.".to_string());
+  }
+  if input
+    .reasoning_effort_override
+    .as_deref()
+    .map(str::trim)
+    .map(|v| !v.is_empty() && effort_override.is_empty())
+    .unwrap_or(false)
+  {
+    return Err("Invalid reasoning_effort_override, use high/max or empty.".to_string());
+  }
   state
     .db
     .set_conversation_chat_settings(
@@ -996,6 +1125,8 @@ fn set_conversation_chat_settings(
       max_recent_messages,
       max_memory_items,
       system_prompt,
+      Some(&thinking_override),
+      Some(&effort_override),
     )
     .map_err(err)
 }
