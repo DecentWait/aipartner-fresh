@@ -294,6 +294,9 @@ cargo tauri build
 - 顶部工具（侧栏开关、标签切换）与标题信息在同一栏，减少垂直占用。
 - 顶部信息区支持 `Show Info / Hide Info`。
 - 在 `Memories/Settings` 页保留顶部工具条，确保侧栏折叠时仍可切换页面。
+- `Chat` 面板在切换标签时保持常驻，仅做显隐切换，减少重建开销。
+- `Memories` 标签切换时避免重复刷新请求，降低切换抖动。
+- `TXT Attachments` 区域支持 `Show TXT / Hide TXT`，默认收起以提升聊天可视高度。
 
 ## 附录 B：源码使用说明（开发 / 构建 / 发布）
 

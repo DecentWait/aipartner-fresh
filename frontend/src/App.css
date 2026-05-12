@@ -251,6 +251,10 @@ body {
   flex: 1;
 }
 
+.pane-hidden {
+  display: none !important;
+}
+
 .header {
   padding: 16px 18px;
   border-bottom: 1px solid var(--line);

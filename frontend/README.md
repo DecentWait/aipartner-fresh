@@ -32,6 +32,9 @@ npm.cmd run build
   - 侧边栏平滑折叠/展开（隐藏后聊天区自动扩展）。
   - 顶部工具（侧栏开关/标签切换）与标题信息合并同栏。
   - 顶部信息区支持 `Show Info / Hide Info`。
+  - `Chat` 面板标签切换时保持常驻，仅显隐，降低切页重建开销。
+  - `Memories` 标签切换避免重复刷新请求。
+  - `TXT Attachments` 支持 `Show TXT / Hide TXT`，默认收起。
 
 ## 记忆来源显示（最小增强）
 - 记忆页显示：scope、importance、created_at、last_used_at。

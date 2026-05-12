@@ -297,6 +297,7 @@ export default function App() {
   const [tab, setTab] = useState<Tab>("chat");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [headerInfoCollapsed, setHeaderInfoCollapsed] = useState(false);
+  const [txtPanelCollapsed, setTxtPanelCollapsed] = useState(true);
   const [settings, setSettings] = useState<AppSettingsPayload | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [query, setQuery] = useState("");
@@ -1145,6 +1146,20 @@ export default function App() {
     setError("Backup restored.");
   }, [bootstrap, restorePath]);
 
+  const renderedMessages = useMemo(
+    () =>
+      currentMessages.map((m) => (
+        <MessageCard
+          key={m.id}
+          message={m}
+          onEdit={onEdit}
+          onRegenerate={onRegenerate}
+          onDelete={onDeleteMessage}
+        />
+      )),
+    [currentMessages, onDeleteMessage, onEdit, onRegenerate],
+  );
+
   return (
     <div className={`app ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
       <aside className={`sidebar ${sidebarCollapsed ? "collapsed" : ""}`}>
@@ -1245,10 +1260,7 @@ export default function App() {
           </button>
           <button
             className={`btn-mini ${tab === "memories" ? "active" : ""}`}
-            onClick={() => {
-              setTab("memories");
-              void refreshMemories();
-            }}
+            onClick={() => setTab("memories")}
           >
             Memories
           </button>
@@ -1270,10 +1282,7 @@ export default function App() {
               </button>
               <button
                 className={`btn-mini ${tab === "memories" ? "active" : ""}`}
-                onClick={() => {
-                  setTab("memories");
-                  void refreshMemories();
-                }}
+                onClick={() => setTab("memories")}
               >
                 Memories
               </button>
@@ -1284,8 +1293,7 @@ export default function App() {
           </div>
         ) : null}
 
-        {tab === "chat" ? (
-          <div className="chat-layout">
+        <div className={`chat-layout ${tab === "chat" ? "" : "pane-hidden"}`}>
             <header className="header">
               <div>
                 <h2>{currentConversation?.title || "Chat"}</h2>
@@ -1316,10 +1324,7 @@ export default function App() {
                   </button>
                   <button
                     className="btn-mini"
-                    onClick={() => {
-                      setTab("memories");
-                      void refreshMemories();
-                    }}
+                    onClick={() => setTab("memories")}
                   >
                     Memories
                   </button>
@@ -1358,8 +1363,17 @@ export default function App() {
 
             <section className="file-attachments">
               <div className="file-attachments-head">
-                <div className="file-attachments-title">TXT Attachments (current conversation)</div>
+                <div className="file-attachments-title">
+                  TXT Attachments (current conversation) · {conversationFiles.length}
+                </div>
                 <div className="inline">
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => setTxtPanelCollapsed((v) => !v)}
+                    disabled={sending || uploadingTxt}
+                  >
+                    {txtPanelCollapsed ? "Show TXT" : "Hide TXT"}
+                  </button>
                   <input
                     ref={txtInputRef}
                     className="hidden-file-input"
@@ -1377,42 +1391,36 @@ export default function App() {
                   </button>
                 </div>
               </div>
-              <div className="file-attachments-list">
-                {conversationFiles.length ? (
-                  conversationFiles.map((f) => (
-                    <div key={f.id} className="file-item">
-                      <div className="file-item-main">
-                        <div className="file-name">{f.file_name}</div>
-                        <div className="file-meta">
-                          {fmtFileSize(f.file_size)} | {fmtTime(f.created_at)}
+              {!txtPanelCollapsed ? (
+                <div className="file-attachments-list">
+                  {conversationFiles.length ? (
+                    conversationFiles.map((f) => (
+                      <div key={f.id} className="file-item">
+                        <div className="file-item-main">
+                          <div className="file-name">{f.file_name}</div>
+                          <div className="file-meta">
+                            {fmtFileSize(f.file_size)} | {fmtTime(f.created_at)}
+                          </div>
+                          {f.summary?.trim() ? <div className="file-summary">{f.summary}</div> : null}
                         </div>
-                        {f.summary?.trim() ? <div className="file-summary">{f.summary}</div> : null}
+                        <button
+                          className="btn-mini danger"
+                          onClick={() => void onDeleteConversationFile(f)}
+                          disabled={sending || uploadingTxt}
+                        >
+                          Delete
+                        </button>
                       </div>
-                      <button
-                        className="btn-mini danger"
-                        onClick={() => void onDeleteConversationFile(f)}
-                        disabled={sending || uploadingTxt}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  ))
-                ) : (
-                  <div className="file-empty">No .txt attachment.</div>
-                )}
-              </div>
+                    ))
+                  ) : (
+                    <div className="file-empty">No .txt attachment.</div>
+                  )}
+                </div>
+              ) : null}
             </section>
 
             <section className="messages">
-              {currentMessages.map((m) => (
-                <MessageCard
-                  key={m.id}
-                  message={m}
-                  onEdit={onEdit}
-                  onRegenerate={onRegenerate}
-                  onDelete={onDeleteMessage}
-                />
-              ))}
+              {renderedMessages}
 
               {streamView.conversation_id === currentId && (streamView.content || streamView.reasoning_content) ? (
                 <div className="message assistant">
@@ -1434,7 +1442,6 @@ export default function App() {
 
             <Composer sending={sending} onSubmit={onSend} />
           </div>
-        ) : null}
 
         {tab === "memories" ? (
           <section className="panel">
