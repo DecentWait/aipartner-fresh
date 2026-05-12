@@ -22,6 +22,10 @@ npm.cmd run build
   - `system_prompt`（会话固定指令）
   - `thinking_override`（DeepSeek：`enabled/disabled`）
   - `reasoning_effort_override`（DeepSeek：`high/max`）
+- 聊天页会话操作：
+  - `Apply Preset` 一键套用参数模板（`friend / pgee_sentence / pgee_fullpaper / coding / quickqa`）
+  - 预设仅覆盖模型与参数，不内置也不覆盖 `system_prompt` 文本。
+- 系统提示词文本不在前端源码硬编码，按数据库中保存的会话/全局配置读取。
 - 长期记忆查看与手动 global/conversation 标记。
 - 当前会话 `.txt` 附件最小入口：上传、列表、删除。
 

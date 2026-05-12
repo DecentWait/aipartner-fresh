@@ -39,6 +39,7 @@ AIPartner/
 - 分段摘要：`summaries` 分段压缩旧聊天，长会话不塞全历史。
 - Context Budget：`max_context_tokens / max_recent_messages / max_memory_items`。
 - 每会话固定指令与完整参数覆盖：`system_prompt + provider/model/base_url/temperature/max_tokens/max_context_tokens/max_recent_messages/max_memory_items`。
+- 自动备份优化：启动按阈值自动备份 + 后台定时自动备份 + 自动清理旧自动备份（保留最近 14 份）。
 - DeepSeek 定向优化（最小实现）：
   - 每会话 `thinking` 覆盖（`enabled/disabled`）
   - 每会话 `reasoning_effort` 覆盖（`high/max`）
@@ -126,6 +127,7 @@ AIPartner/
 - `system_prompt` 只作用于当前会话，保存后立即生效，清空后立即失效。
 - `system_prompt` 不会自动写入 `memories`，也不会写入 `summaries`。
 - `system_prompt` 与 txt 附件 summary 分开管理，不互相覆盖。
+- 源码不内置默认系统提示词文本；会话 `system_prompt` 与可选 `core_persona_prompt` 都从本地数据库读取。
 - 发送消息时会合并“会话设置 + 全局设置”，字段为空时自动回退全局：
   - `conversation.provider` 为空 -> 用全局 `provider`
   - `conversation.model` 为空 -> 用全局 `model`
@@ -139,6 +141,18 @@ AIPartner/
   - `conversation.thinking_override` 为空 -> DeepSeek 使用默认 `enabled`
   - `conversation.reasoning_effort_override` 为空 -> DeepSeek 使用默认 `high`
 - `api_key` 继续使用全局 provider 配置，不做每会话独立 key。
+- 聊天页支持 `Apply Preset` 一键套用会话参数模板（不会影响其他会话）。
+
+### 会话参数模板（Apply Preset）
+
+在聊天页点击 `Apply Preset`，输入以下 key：
+- `friend`
+- `pgee_sentence`
+- `pgee_fullpaper`
+- `coding`
+- `quickqa`
+
+模板会一次性写入当前会话的 provider/model/temperature/context budget/thinking/effort 覆盖项，不会写入或覆盖 system_prompt。
 
 ### 上下文注入优先级（当前实现）
 
@@ -265,6 +279,10 @@ cargo tauri build
 
 10. 备份与恢复
 - 手动创建备份。
+- 自动备份：
+  - 启动时若最近自动备份超过约 20 小时，会补一次自动备份。
+  - 运行期间每 24 小时检查并自动备份一次。
+  - 自动备份文件名前缀为 `auto_`，仅保留最近 14 份。
 - 从备份恢复（恢复前自动安全备份）。
 - 恢复流程包含 SQLite 完整性检查。
 

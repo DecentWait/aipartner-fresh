@@ -12,6 +12,8 @@ use std::{
     atomic::{AtomicBool, Ordering},
     Arc,
   },
+  thread,
+  time::{Duration, SystemTime},
 };
 
 use api::{stream_chat_completion, ApiMessage, ApiRuntimeConfig, StreamCallbacks};
@@ -29,6 +31,10 @@ use tauri::{Emitter, Manager, State};
 use uuid::Uuid;
 
 type CmdResult<T> = Result<T, String>;
+const AUTO_BACKUP_PREFIX: &str = "auto_";
+const AUTO_BACKUP_INTERVAL_HOURS: u64 = 24;
+const AUTO_BACKUP_RETENTION: usize = 14;
+const AUTO_BACKUP_RECENT_THRESHOLD_SECS: u64 = 20 * 60 * 60;
 
 pub struct AppState {
   app_root: PathBuf,
@@ -610,7 +616,11 @@ fn build_context_messages(
     required.push(current_user.clone());
   }
 
-  let core_persona = "You are AIPartner, a long-term personal AI companion.\nKeep identity continuity, warm direct tone, and practical help.\nYou must learn and adapt to the user over time.\nWhen relevant, proactively link older memories naturally, for example: \"这让我想到你之前说过……\".\nIf there is no reasoning stream from model, continue normally without error.".to_string();
+  let core_persona = state
+    .db
+    .get_setting("core_persona_prompt", "")
+    .trim()
+    .to_string();
   let system_prompt_section = {
     let clean = system_prompt_override.trim();
     if clean.is_empty() {
@@ -675,7 +685,9 @@ fn build_context_messages(
   if !system_prompt_section.trim().is_empty() {
     pinned_sections.push(system_prompt_section);
   }
-  pinned_sections.push(core_persona);
+  if !core_persona.trim().is_empty() {
+    pinned_sections.push(core_persona);
+  }
   let pinned_text = pinned_sections.join("\n\n");
   let pinned_tokens = estimate_tokens(&pinned_text) + 8;
 
@@ -1382,6 +1394,73 @@ fn restore_backup(state: State<'_, AppState>, input: ImportJsonInput) -> CmdResu
   sync_settings_file(&state)
 }
 
+fn list_auto_backups(backup_dir: &Path) -> Vec<(PathBuf, SystemTime)> {
+  let mut items: Vec<(PathBuf, SystemTime)> = Vec::new();
+  let read_dir = match fs::read_dir(backup_dir) {
+    Ok(v) => v,
+    Err(_) => return items,
+  };
+  for entry in read_dir.flatten() {
+    let path = entry.path();
+    if !path.is_file() {
+      continue;
+    }
+    let name = match path.file_name().and_then(|x| x.to_str()) {
+      Some(v) => v,
+      None => continue,
+    };
+    if !name.starts_with(AUTO_BACKUP_PREFIX) || !name.ends_with(".db") {
+      continue;
+    }
+    let modified = entry
+      .metadata()
+      .ok()
+      .and_then(|m| m.modified().ok())
+      .unwrap_or(SystemTime::UNIX_EPOCH);
+    items.push((path, modified));
+  }
+  items.sort_by(|a, b| b.1.cmp(&a.1));
+  items
+}
+
+fn prune_auto_backups(backup_dir: &Path) {
+  let items = list_auto_backups(backup_dir);
+  for (idx, (path, _)) in items.iter().enumerate() {
+    if idx < AUTO_BACKUP_RETENTION {
+      continue;
+    }
+    let _ = fs::remove_file(path);
+  }
+}
+
+fn maybe_run_auto_backup(db: &Arc<Database>, backup_dir: &Path, force: bool) {
+  let latest = list_auto_backups(backup_dir).into_iter().next();
+  let should_backup = if force {
+    true
+  } else {
+    match latest {
+      None => true,
+      Some((_, ts)) => SystemTime::now()
+        .duration_since(ts)
+        .map(|d| d.as_secs() >= AUTO_BACKUP_RECENT_THRESHOLD_SECS)
+        .unwrap_or(true),
+    }
+  };
+  if !should_backup {
+    return;
+  }
+
+  let file_name = format!(
+    "{}{}.db",
+    AUTO_BACKUP_PREFIX,
+    chrono::Utc::now().format("%Y%m%d_%H%M%S")
+  );
+  let path = backup_dir.join(file_name);
+  if db.backup_to(&path).is_ok() {
+    prune_auto_backups(backup_dir);
+  }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
@@ -1417,10 +1496,20 @@ pub fn run() {
 
       let db = Database::open(data_dir.join("AIPartner.db")).map_err(err)?;
       db.init_schema(&backup_dir).map_err(err)?;
+      let db = Arc::new(db);
+      maybe_run_auto_backup(&db, &backup_dir, false);
+      {
+        let db_for_task = db.clone();
+        let backup_dir_for_task = backup_dir.clone();
+        thread::spawn(move || loop {
+          thread::sleep(Duration::from_secs(AUTO_BACKUP_INTERVAL_HOURS * 3600));
+          maybe_run_auto_backup(&db_for_task, &backup_dir_for_task, false);
+        });
+      }
       let state = AppState {
         app_root,
         files_dir,
-        db: Arc::new(db),
+        db,
         backup_dir,
         config_file,
         generation_flags: Mutex::new(HashMap::new()),

@@ -36,6 +36,80 @@ const STREAM_FLUSH_MS = 16;
 const THEME_MEDIA_QUERY = "(prefers-color-scheme: dark)";
 const PROVIDER_OPTIONS = ["deepseek", "openai", "openrouter", "ollama", "custom"] as const;
 const MAX_TXT_FILE_BYTES = 1_048_576;
+type ConversationPreset = {
+  provider: string;
+  model: string;
+  baseUrl: string;
+  temperature: number | null;
+  maxTokens: number | null;
+  maxContextTokens: number | null;
+  maxRecentMessages: number | null;
+  maxMemoryItems: number | null;
+  thinkingOverride: "enabled" | "disabled" | "";
+  reasoningEffortOverride: "high" | "max" | "";
+};
+const CONVERSATION_PRESETS: Record<string, ConversationPreset> = {
+  friend: {
+    provider: "deepseek",
+    model: "deepseek-v4-flash",
+    baseUrl: "",
+    temperature: 0.7,
+    maxTokens: 2048,
+    maxContextTokens: 12000,
+    maxRecentMessages: 20,
+    maxMemoryItems: 8,
+    thinkingOverride: "disabled",
+    reasoningEffortOverride: "",
+  },
+  pgee_sentence: {
+    provider: "deepseek",
+    model: "deepseek-v4-pro",
+    baseUrl: "",
+    temperature: 0.3,
+    maxTokens: 2048,
+    maxContextTokens: 12000,
+    maxRecentMessages: 20,
+    maxMemoryItems: 5,
+    thinkingOverride: "enabled",
+    reasoningEffortOverride: "high",
+  },
+  pgee_fullpaper: {
+    provider: "deepseek",
+    model: "deepseek-v4-pro",
+    baseUrl: "",
+    temperature: 0.2,
+    maxTokens: 4096,
+    maxContextTokens: 24000,
+    maxRecentMessages: 20,
+    maxMemoryItems: 3,
+    thinkingOverride: "enabled",
+    reasoningEffortOverride: "max",
+  },
+  coding: {
+    provider: "deepseek",
+    model: "deepseek-v4-pro",
+    baseUrl: "",
+    temperature: 0.2,
+    maxTokens: 4096,
+    maxContextTokens: 24000,
+    maxRecentMessages: 25,
+    maxMemoryItems: 6,
+    thinkingOverride: "enabled",
+    reasoningEffortOverride: "high",
+  },
+  quickqa: {
+    provider: "deepseek",
+    model: "deepseek-v4-flash",
+    baseUrl: "",
+    temperature: 0.5,
+    maxTokens: 1024,
+    maxContextTokens: 8192,
+    maxRecentMessages: 10,
+    maxMemoryItems: 4,
+    thinkingOverride: "disabled",
+    reasoningEffortOverride: "",
+  },
+};
 const EMPTY_STREAM: StreamView = {
   request_id: "",
   conversation_id: "",
@@ -806,6 +880,45 @@ export default function App() {
     }
   }, [currentConversation?.model_override, currentId, refreshConversations]);
 
+  const onApplyConversationPreset = useCallback(async () => {
+    if (!currentId || !settings || !currentConversation) return;
+    const keys = Object.keys(CONVERSATION_PRESETS);
+    const key = window.prompt(
+      `Preset key (${keys.join(", ")}). Empty to cancel.`,
+      "friend",
+    );
+    if (key === null) return;
+    const normalized = key.trim().toLowerCase();
+    if (!normalized) return;
+    const preset = CONVERSATION_PRESETS[normalized];
+    if (!preset) {
+      setError(`Unknown preset: ${normalized}`);
+      return;
+    }
+    try {
+      await commands.setConversationChatSettings(
+        currentId,
+        preset.provider,
+        preset.model,
+        preset.baseUrl,
+        preset.temperature,
+        preset.maxTokens,
+        preset.maxContextTokens,
+        preset.maxRecentMessages,
+        preset.maxMemoryItems,
+        (currentConversation.system_prompt || "").trim() || null,
+        preset.thinkingOverride || null,
+        preset.reasoningEffortOverride || null,
+      );
+      staleConversationsRef.current[currentId] = true;
+      await refreshConversations(queryRef.current);
+      await refreshHasKey(preset.provider || settings.chat.provider);
+      setError(`Preset applied: ${normalized}`);
+    } catch (e) {
+      setError(String(e));
+    }
+  }, [currentConversation, currentId, refreshConversations, refreshHasKey, settings]);
+
   const onSetConversationChatSettings = useCallback(async () => {
     if (!currentId || !currentConversation || !settings) return;
     const p = window.prompt(
@@ -1149,6 +1262,13 @@ export default function App() {
                 <p>DeepSeek thinking: {activeThinkingLabel} | reasoning_effort: {activeReasoningEffortLabel}</p>
               </div>
               <div className="header-actions">
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => void onApplyConversationPreset()}
+                  disabled={!currentId}
+                >
+                  Apply Preset
+                </button>
                 <button
                   className="btn btn-secondary"
                   onClick={() => void onSetConversationChatSettings()}
