@@ -694,6 +694,7 @@ impl Database {
       ("max_context_tokens", "12000".to_string()),
       ("max_recent_messages", "20".to_string()),
       ("max_memory_items", "8".to_string()),
+      ("txt_max_file_bytes", "1048576".to_string()),
       ("last_conversation_id", "".to_string()),
       ("theme_mode", "system".to_string()),
       ("models", models_json),
@@ -850,6 +851,15 @@ impl Database {
     } else {
       max_memory_items
     };
+    let txt_max_file_bytes = self
+      .get_setting("txt_max_file_bytes", "1048576")
+      .parse::<i64>()
+      .unwrap_or(1_048_576);
+    let txt_max_file_bytes = if txt_max_file_bytes <= 0 {
+      1_048_576
+    } else {
+      txt_max_file_bytes.clamp(1_024, 33_554_432)
+    };
 
     ChatSettings {
       provider,
@@ -863,6 +873,7 @@ impl Database {
       max_context_tokens,
       max_recent_messages,
       max_memory_items,
+      txt_max_file_bytes,
     }
   }
 
@@ -901,12 +912,18 @@ impl Database {
     } else {
       settings.max_memory_items
     };
+    let txt_max_file_bytes = if settings.txt_max_file_bytes <= 0 {
+      1_048_576
+    } else {
+      settings.txt_max_file_bytes.clamp(1_024, 33_554_432)
+    };
 
     self.set_setting("temperature", &settings.temperature.to_string())?;
     self.set_setting("max_tokens", &max_tokens.to_string())?;
     self.set_setting("max_context_tokens", &max_context_tokens.to_string())?;
     self.set_setting("max_recent_messages", &max_recent_messages.to_string())?;
     self.set_setting("max_memory_items", &max_memory_items.to_string())?;
+    self.set_setting("txt_max_file_bytes", &txt_max_file_bytes.to_string())?;
     Ok(())
   }
 

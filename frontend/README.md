@@ -59,7 +59,8 @@ npm.cmd run build
 
 ## txt 附件前端约束
 - 只允许 `.txt`。
-- 单文件大小限制 1MB。
+- 单文件大小上限来自设置页 `TXT Max File Size (KB)`（默认 1MB）。
+- 后端硬限制范围 `1KB ~ 32MB`。
 - 上传后显示文件名、大小、创建时间、summary。
 - 删除后立即从当前会话附件列表移除。
 - 不支持 PDF/Word/Excel，不做 embedding/RAG。

@@ -77,6 +77,7 @@ export interface ChatSettings {
   max_context_tokens: number;
   max_recent_messages: number;
   max_memory_items: number;
+  txt_max_file_bytes: number;
 }
 
 export interface AppSettingsPayload {

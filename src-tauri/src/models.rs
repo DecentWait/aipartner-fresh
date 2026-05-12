@@ -141,6 +141,7 @@ pub struct ChatSettings {
   pub max_context_tokens: i64,
   pub max_recent_messages: i64,
   pub max_memory_items: i64,
+  pub txt_max_file_bytes: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

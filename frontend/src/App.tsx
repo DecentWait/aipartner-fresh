@@ -35,7 +35,9 @@ const MESSAGE_PAGE_SIZE = 1000;
 const STREAM_FLUSH_MS = 16;
 const THEME_MEDIA_QUERY = "(prefers-color-scheme: dark)";
 const PROVIDER_OPTIONS = ["deepseek", "openai", "openrouter", "ollama", "custom"] as const;
-const MAX_TXT_FILE_BYTES = 1_048_576;
+const DEFAULT_TXT_FILE_BYTES = 1_048_576;
+const MIN_TXT_FILE_BYTES = 1_024;
+const MAX_TXT_FILE_BYTES_HARD_CAP = 33_554_432;
 type ConversationPreset = {
   provider: string;
   model: string;
@@ -173,6 +175,11 @@ function fmtFileSize(bytes: number) {
   if (kb < 1024) return `${kb.toFixed(1)} KB`;
   const mb = kb / 1024;
   return `${mb.toFixed(2)} MB`;
+}
+
+function normalizeTxtLimitBytes(bytes: number) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return DEFAULT_TXT_FILE_BYTES;
+  return Math.min(MAX_TXT_FILE_BYTES_HARD_CAP, Math.max(MIN_TXT_FILE_BYTES, Math.round(bytes)));
 }
 
 function clipText(input: string, max = 120) {
@@ -794,6 +801,7 @@ export default function App() {
 
   const onUploadTxt = useCallback(async (file: File | null) => {
     if (!file || !currentId) return;
+    const txtLimitBytes = normalizeTxtLimitBytes(settings?.chat.txt_max_file_bytes ?? DEFAULT_TXT_FILE_BYTES);
     const lower = file.name.toLowerCase();
     if (!lower.endsWith(".txt")) {
       setError("Only .txt file upload is supported.");
@@ -803,8 +811,8 @@ export default function App() {
       setError("Empty file is not allowed.");
       return;
     }
-    if (file.size > MAX_TXT_FILE_BYTES) {
-      setError("TXT file exceeds 1MB limit.");
+    if (file.size > txtLimitBytes) {
+      setError(`TXT file exceeds limit (${fmtFileSize(txtLimitBytes)}).`);
       return;
     }
 
@@ -838,7 +846,7 @@ export default function App() {
         txtInputRef.current.value = "";
       }
     }
-  }, [currentId, refreshConversationFiles]);
+  }, [currentId, refreshConversationFiles, settings]);
 
   const onDeleteConversationFile = useCallback(async (file: ConversationFile) => {
     if (!window.confirm(`Delete attachment ${file.file_name}?`)) return;
@@ -1635,6 +1643,27 @@ export default function App() {
                           },
                         })
                       }
+                    />
+                  </label>
+                  <label>
+                    TXT Max File Size (KB)
+                    <input
+                      type="number"
+                      min={1}
+                      max={32768}
+                      value={Math.max(1, Math.round(normalizeTxtLimitBytes(settings.chat.txt_max_file_bytes) / 1024))}
+                      onChange={(e) => {
+                        const kbRaw = Number(e.target.value || 1024);
+                        const kb = Number.isFinite(kbRaw) ? Math.round(kbRaw) : 1024;
+                        const clampedKb = Math.max(1, Math.min(32768, kb));
+                        setSettings({
+                          ...settings,
+                          chat: {
+                            ...settings.chat,
+                            txt_max_file_bytes: clampedKb * 1024,
+                          },
+                        });
+                      }}
                     />
                   </label>
                 </div>

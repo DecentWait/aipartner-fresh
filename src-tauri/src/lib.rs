@@ -281,7 +281,24 @@ fn clip(input: &str, max_chars: usize) -> String {
   input.chars().take(max_chars).collect()
 }
 
-const MAX_TXT_FILE_BYTES: i64 = 1_048_576;
+const DEFAULT_TXT_FILE_BYTES: i64 = 1_048_576;
+const MIN_TXT_FILE_BYTES: i64 = 1_024;
+const MAX_TXT_FILE_BYTES_HARD_CAP: i64 = 33_554_432;
+
+fn normalize_txt_limit_bytes(bytes: i64) -> i64 {
+  if bytes <= 0 {
+    return DEFAULT_TXT_FILE_BYTES;
+  }
+  bytes.clamp(MIN_TXT_FILE_BYTES, MAX_TXT_FILE_BYTES_HARD_CAP)
+}
+
+fn format_limit_bytes(bytes: i64) -> String {
+  if bytes >= 1_048_576 {
+    format!("{:.2}MB", (bytes as f64) / 1_048_576.0)
+  } else {
+    format!("{}KB", ((bytes + 1023) / 1024))
+  }
+}
 
 fn is_txt_file_name(name: &str) -> bool {
   Path::new(name)
@@ -1168,8 +1185,12 @@ fn upload_txt_file(state: State<'_, AppState>, input: UploadTxtFileInput) -> Cmd
   if input.file_size <= 0 {
     return Err("empty file is not allowed".to_string());
   }
-  if input.file_size > MAX_TXT_FILE_BYTES {
-    return Err("txt file exceeds 1MB limit".to_string());
+  let txt_max_file_bytes = normalize_txt_limit_bytes(state.db.get_chat_settings().txt_max_file_bytes);
+  if input.file_size > txt_max_file_bytes {
+    return Err(format!(
+      "txt file exceeds configured limit ({})",
+      format_limit_bytes(txt_max_file_bytes)
+    ));
   }
 
   let content_text = input.content_text.replace('\u{0000}', "");
@@ -1179,8 +1200,11 @@ fn upload_txt_file(state: State<'_, AppState>, input: UploadTxtFileInput) -> Cmd
 
   // Extra guard for malicious payload expansion.
   let content_bytes = content_text.as_bytes().len() as i64;
-  if content_bytes > MAX_TXT_FILE_BYTES {
-    return Err("txt content exceeds 1MB limit after decoding".to_string());
+  if content_bytes > txt_max_file_bytes {
+    return Err(format!(
+      "txt content exceeds configured limit ({}) after decoding",
+      format_limit_bytes(txt_max_file_bytes)
+    ));
   }
 
   let safe_name = sanitize_txt_file_name(file_name);

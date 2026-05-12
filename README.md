@@ -53,7 +53,8 @@ AIPartner/
 - 上传入口：聊天页内 `Upload .txt`。
 - 作用域：附件只绑定当前 conversation。
 - 存储路径：`data/files/`。
-- 文件限制：单文件最大 1MB，空文件拒绝。
+- 文件限制：单文件上限可在设置页修改（`TXT Max File Size (KB)`），默认 1MB；空文件拒绝。
+- 安全边界：后端硬限制范围 `1KB ~ 32MB`。
 - 文件名安全：后端会清理文件名并生成唯一存储名，防路径穿越。
 - 删除：支持当前会话附件删除（软删除 `deleted_at`），删除后不再进入上下文。
 
@@ -271,7 +272,8 @@ cargo tauri build
 
 9. txt 会话附件（最小可用）
 - 仅支持 `.txt` 上传（不支持 PDF/Word/Excel/图片）。
-- 单文件 1MB 限制，空文件拒绝。
+- 单文件上限可配置（设置页 `TXT Max File Size (KB)`，默认 1MB）。
+- 后端硬限制范围 `1KB ~ 32MB`，超限会拒绝。
 - 文件落盘：`data/files/`，文件名安全清理与唯一化。
 - 附件绑定当前 conversation，不跨会话注入。
 - 默认只注入 txt `summary` 参与上下文。
@@ -340,39 +342,26 @@ cargo tauri build
 
 ## 附录 C：TXT 大小上限修改方案（完整步骤）
 
-当前默认上限为 1MB（`1_048_576` bytes）。  
-如需改为 2MB/4MB 等，请按下面步骤同步修改。
+当前版本支持在设置页直接修改 TXT 上传上限：  
+`Settings -> TXT Max File Size (KB)`（保存后立即生效，重启保留）。
 
-1. 修改前端上传校验常量
-- 文件：`frontend/src/App.tsx`
-- 常量：`MAX_TXT_FILE_BYTES`
-- 默认值：`1_048_576`
-- 示例：
-  - 2MB：`2_097_152`
-  - 4MB：`4_194_304`
+1. 日常使用（推荐）
+- 在设置页调整 `TXT Max File Size (KB)`。
+- 默认 1024KB（1MB）。
+- 后端安全边界：最小 1KB，最大 32768KB（32MB）。
 
-2. 修改后端硬校验常量
+2. 需要改“默认值”时（可选）
+- 文件：`src-tauri/src/db.rs`
+- 键：`txt_max_file_bytes`
+- 默认值：`1048576`（1MB）
+
+3. 需要改“硬限制边界”时（可选）
 - 文件：`src-tauri/src/lib.rs`
-- 常量：`MAX_TXT_FILE_BYTES`
-- 默认值：`1_048_576`
-- 注意：必须与前端保持同值，避免前后端限制不一致。
+- 常量：
+  - `MIN_TXT_FILE_BYTES`
+  - `MAX_TXT_FILE_BYTES_HARD_CAP`
 
-3. 同步用户提示文案（建议）
-- 文件：`frontend/src/App.tsx`
-  - 错误提示：`TXT file exceeds 1MB limit.`
-- 文件：`src-tauri/src/lib.rs`
-  - 错误提示：`txt file exceeds 1MB limit`
-  - 错误提示：`txt content exceeds 1MB limit after decoding`
-- 把 `1MB` 同步改成新上限（如 `2MB`），避免提示和实际限制不一致。
-
-4. 同步文档描述（建议）
-- 文件：`README.md`
-  - “最小 txt 上传功能（会话附件）”
-  - “附录 A：txt 会话附件（最小可用）”
-- 文件：`frontend/README.md`
-  - “txt 附件前端约束”
-
-5. 修改后验证（建议顺序）
+4. 修改后验证（建议顺序）
 ```bash
 cd src-tauri
 cargo check
@@ -384,7 +373,7 @@ cd ../src-tauri
 cargo tauri build
 ```
 
-6. 验收要点
+5. 验收要点
 - 小于上限的 `.txt` 可以上传并正常显示。
 - 大于上限的 `.txt` 会被明确拒绝并提示。
 - 上传后会写入 `data/files/`，并记录到 `conversation_files`。
