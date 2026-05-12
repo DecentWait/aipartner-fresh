@@ -1,0 +1,33 @@
+[package]
+name = "aipartner"
+version = "1.0.0"
+description = "AIPartner desktop app"
+authors = ["AIPartner"]
+license = ""
+repository = ""
+edition = "2021"
+rust-version = "1.77.2"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+name = "aipartner_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.6.1", features = [] }
+
+[dependencies]
+anyhow = "1.0"
+chrono = { version = "0.4", features = ["serde"] }
+futures-util = "0.3"
+log = "0.4"
+parking_lot = "0.12"
+reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls"] }
+rusqlite = { version = "0.37", features = ["bundled", "chrono"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tauri = { version = "2.11.1", features = [] }
+tauri-plugin-log = "2"
+tokio = { version = "1.48", features = ["rt", "sync"] }
+uuid = { version = "1.18", features = ["v4", "serde"] }
