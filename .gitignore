@@ -1,0 +1,32 @@
+# Build outputs
+src-tauri/target/
+frontend/node_modules/
+frontend/dist/
+
+# Runtime local data (portable app folders)
+data/
+config/
+cache/
+
+# Databases
+*.db
+*.db-wal
+*.db-shm
+
+# Installers / executables
+*.exe
+*.msi
+
+# Logs
+*.log
+logs/
+
+# Local settings / env / secrets
+settings.json
+.env
+*.token
+*token*
+*secret*
+*apikey*
+*api_key*
+
