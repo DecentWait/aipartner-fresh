@@ -40,7 +40,7 @@ AIPartner/
 - Context Budget：`max_context_tokens / max_recent_messages / max_memory_items`。
 - 每会话固定指令与完整参数覆盖：`system_prompt + provider/model/base_url/temperature/max_tokens/max_context_tokens/max_recent_messages/max_memory_items`。
 - 自动备份优化：启动按阈值自动备份 + 后台定时自动备份 + 自动清理旧自动备份（保留最近 14 份）。
-- 聊天 UI 折叠优化：侧边栏支持平滑折叠/展开；聊天页顶部工具与标题信息合并同栏；顶部信息区可折叠。
+- 聊天 UI 折叠优化：侧边栏支持平滑折叠/展开；侧栏显隐不触发整列表重算；聊天页顶部工具与标题信息合并同栏；顶部信息区可折叠。
 - DeepSeek 定向优化（最小实现）：
   - 每会话 `thinking` 覆盖（`enabled/disabled`）
   - 每会话 `reasoning_effort` 覆盖（`high/max`）

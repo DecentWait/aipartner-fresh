@@ -1160,6 +1160,89 @@ export default function App() {
     [currentMessages, onDeleteMessage, onEdit, onRegenerate],
   );
 
+  const renderedConversationItems = useMemo(
+    () =>
+      conversations.map((c) => (
+        <div
+          key={c.id}
+          className={`conversation-item ${c.id === currentId ? "active" : ""}`}
+          onClick={() => {
+            setCurrentId(c.id);
+            void loadMessages(c.id);
+            if (tab === "memories") {
+              void refreshMemories(c.id);
+            }
+          }}
+        >
+          <div className="conversation-title">{c.title}</div>
+          <div className="conversation-meta">{fmtTime(c.updated_at)}</div>
+          <div className="conversation-meta">messages {c.message_count}</div>
+          <div className="conversation-meta">{c.is_pinned ? "pinned" : "normal"}</div>
+          <div className="conversation-meta">
+            model {(c.model_override || "").trim() ? `fixed: ${c.model_override}` : "global"}
+          </div>
+          <div className="conversation-actions">
+            <button
+              className="btn-mini"
+              onClick={(e) => {
+                e.stopPropagation();
+                void onRenameConversation(c);
+              }}
+            >
+              Rename
+            </button>
+            <button
+              className="btn-mini"
+              onClick={(e) => {
+                e.stopPropagation();
+                void onToggleConversationPinned(c);
+              }}
+            >
+              {c.is_pinned ? "Unpin" : "Pin"}
+            </button>
+            <button
+              className="btn-mini"
+              onClick={(e) => {
+                e.stopPropagation();
+                void onMoveConversation(c, "up");
+              }}
+            >
+              Up
+            </button>
+            <button
+              className="btn-mini"
+              onClick={(e) => {
+                e.stopPropagation();
+                void onMoveConversation(c, "down");
+              }}
+            >
+              Down
+            </button>
+            <button
+              className="btn-mini danger"
+              onClick={(e) => {
+                e.stopPropagation();
+                void onDeleteConversation(c);
+              }}
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      )),
+    [
+      conversations,
+      currentId,
+      loadMessages,
+      onDeleteConversation,
+      onMoveConversation,
+      onRenameConversation,
+      onToggleConversationPinned,
+      refreshMemories,
+      tab,
+    ],
+  );
+
   return (
     <div className={`app ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
       <aside className={`sidebar ${sidebarCollapsed ? "collapsed" : ""}`}>
@@ -1183,76 +1266,7 @@ export default function App() {
           onChange={(e) => setQuery(e.target.value)}
         />
 
-        <div className="conversation-list">
-          {conversations.map((c) => (
-            <div
-              key={c.id}
-              className={`conversation-item ${c.id === currentId ? "active" : ""}`}
-              onClick={() => {
-                setCurrentId(c.id);
-                void loadMessages(c.id);
-                if (tab === "memories") {
-                  void refreshMemories(c.id);
-                }
-              }}
-            >
-              <div className="conversation-title">{c.title}</div>
-              <div className="conversation-meta">{fmtTime(c.updated_at)}</div>
-              <div className="conversation-meta">messages {c.message_count}</div>
-              <div className="conversation-meta">{c.is_pinned ? "pinned" : "normal"}</div>
-              <div className="conversation-meta">
-                model {(c.model_override || "").trim() ? `fixed: ${c.model_override}` : "global"}
-              </div>
-              <div className="conversation-actions">
-                <button
-                  className="btn-mini"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    void onRenameConversation(c);
-                  }}
-                >
-                  Rename
-                </button>
-                <button
-                  className="btn-mini"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    void onToggleConversationPinned(c);
-                  }}
-                >
-                  {c.is_pinned ? "Unpin" : "Pin"}
-                </button>
-                <button
-                  className="btn-mini"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    void onMoveConversation(c, "up");
-                  }}
-                >
-                  Up
-                </button>
-                <button
-                  className="btn-mini"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    void onMoveConversation(c, "down");
-                  }}
-                >
-                  Down
-                </button>
-                <button
-                  className="btn-mini danger"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    void onDeleteConversation(c);
-                  }}
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+        <div className="conversation-list">{renderedConversationItems}</div>
 
         <div className="sidebar-tabs">
           <button className={`btn-mini ${tab === "chat" ? "active" : ""}`} onClick={() => setTab("chat")}>

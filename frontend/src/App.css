@@ -99,7 +99,6 @@ body {
   height: 100vh;
   min-height: 100vh;
   overflow: hidden;
-  transition: grid-template-columns 0.2s ease;
 }
 
 .app.sidebar-collapsed {
@@ -117,6 +116,8 @@ body {
   height: 100vh;
   min-width: 0;
   overflow: hidden;
+  contain: layout paint style;
+  will-change: transform, opacity;
   transition:
     opacity 0.2s ease,
     padding 0.2s ease,
@@ -129,7 +130,7 @@ body {
   pointer-events: none;
   padding: 0;
   border-right-color: transparent;
-  transform: translateX(-8px);
+  transform: translate3d(-8px, 0, 0);
 }
 
 .brand h1 {
