@@ -99,6 +99,11 @@ body {
   height: 100vh;
   min-height: 100vh;
   overflow: hidden;
+  transition: grid-template-columns 0.2s ease;
+}
+
+.app.sidebar-collapsed {
+  grid-template-columns: 0 1fr;
 }
 
 .sidebar {
@@ -110,7 +115,21 @@ body {
   gap: 10px;
   min-height: 0;
   height: 100vh;
+  min-width: 0;
   overflow: hidden;
+  transition:
+    opacity 0.2s ease,
+    padding 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.sidebar.collapsed {
+  opacity: 0;
+  pointer-events: none;
+  padding: 0;
+  border-right-color: transparent;
+  transform: translateX(-8px);
 }
 
 .brand h1 {
@@ -208,11 +227,28 @@ body {
   overflow: hidden;
 }
 
+.main-toolbar {
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+  padding: 8px 12px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.main-toolbar-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
 .chat-layout {
   display: grid;
   grid-template-rows: auto auto 1fr auto;
   min-height: 0;
-  height: 100%;
+  flex: 1;
 }
 
 .header {
@@ -237,6 +273,12 @@ body {
   justify-content: flex-end;
 }
 
+.header-toolbar-inline {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
 .header h2 {
   margin: 0;
   font-size: 18px;
@@ -246,6 +288,10 @@ body {
   margin: 4px 0 0;
   color: var(--muted);
   font-size: 12px;
+}
+
+.header-collapsed-tip {
+  opacity: 0.85;
 }
 
 .messages {
@@ -528,6 +574,13 @@ body {
     height: auto;
   }
 
+  .app.sidebar-collapsed .sidebar {
+    max-height: 0;
+    height: 0;
+    border-bottom-color: transparent;
+    padding: 0;
+  }
+
   .form-grid {
     grid-template-columns: 1fr;
   }
@@ -535,5 +588,11 @@ body {
   .header-actions {
     width: 100%;
     justify-content: flex-start;
+  }
+
+  .main-toolbar {
+    position: sticky;
+    top: 0;
+    z-index: 2;
   }
 }

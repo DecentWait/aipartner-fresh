@@ -40,6 +40,7 @@ AIPartner/
 - Context Budget：`max_context_tokens / max_recent_messages / max_memory_items`。
 - 每会话固定指令与完整参数覆盖：`system_prompt + provider/model/base_url/temperature/max_tokens/max_context_tokens/max_recent_messages/max_memory_items`。
 - 自动备份优化：启动按阈值自动备份 + 后台定时自动备份 + 自动清理旧自动备份（保留最近 14 份）。
+- 聊天 UI 折叠优化：侧边栏支持平滑折叠/展开；聊天页顶部工具与标题信息合并同栏；顶部信息区可折叠。
 - DeepSeek 定向优化（最小实现）：
   - 每会话 `thinking` 覆盖（`enabled/disabled`）
   - 每会话 `reasoning_effort` 覆盖（`high/max`）
@@ -232,6 +233,7 @@ cargo tauri build
 - 会话置顶/取消置顶。
 - 会话上移/下移排序。
 - 启动恢复上次会话。
+- 会话侧边栏支持平滑折叠/展开（隐藏后聊天区自动扩展）。
 
 4. 消息能力
 - 发送消息、停止生成。
@@ -285,6 +287,11 @@ cargo tauri build
   - 自动备份文件名前缀为 `auto_`，仅保留最近 14 份。
 - 从备份恢复（恢复前自动安全备份）。
 - 恢复流程包含 SQLite 完整性检查。
+
+11. 聊天页布局效率
+- 顶部工具（侧栏开关、标签切换）与标题信息在同一栏，减少垂直占用。
+- 顶部信息区支持 `Show Info / Hide Info`。
+- 在 `Memories/Settings` 页保留顶部工具条，确保侧栏折叠时仍可切换页面。
 
 ## 附录 B：源码使用说明（开发 / 构建 / 发布）
 

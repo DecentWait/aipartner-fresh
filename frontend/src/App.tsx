@@ -288,6 +288,8 @@ const Composer = memo(function Composer({
 
 export default function App() {
   const [tab, setTab] = useState<Tab>("chat");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [headerInfoCollapsed, setHeaderInfoCollapsed] = useState(false);
   const [settings, setSettings] = useState<AppSettingsPayload | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [query, setQuery] = useState("");
@@ -1136,12 +1138,16 @@ export default function App() {
   }, [bootstrap, restorePath]);
 
   return (
-    <div className="app">
-      <aside className="sidebar">
+    <div className={`app ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
+      <aside className={`sidebar ${sidebarCollapsed ? "collapsed" : ""}`}>
         <div className="brand">
           <h1>AIPartner</h1>
           <p>Local long-term AI companion</p>
         </div>
+
+        <button className="btn btn-secondary" onClick={() => setSidebarCollapsed(true)}>
+          Collapse Sidebar
+        </button>
 
         <button className="btn btn-primary" onClick={() => void onCreateConversation()}>
           + New Chat
@@ -1245,23 +1251,80 @@ export default function App() {
       </aside>
 
       <main className="main">
+        {tab !== "chat" ? (
+          <div className="main-toolbar">
+            <button className="btn btn-secondary" onClick={() => setSidebarCollapsed((v) => !v)}>
+              {sidebarCollapsed ? "Show Sidebar" : "Hide Sidebar"}
+            </button>
+            <div className="main-toolbar-tabs">
+              <button className="btn-mini" onClick={() => setTab("chat")}>
+                Chat
+              </button>
+              <button
+                className={`btn-mini ${tab === "memories" ? "active" : ""}`}
+                onClick={() => {
+                  setTab("memories");
+                  void refreshMemories();
+                }}
+              >
+                Memories
+              </button>
+              <button className={`btn-mini ${tab === "settings" ? "active" : ""}`} onClick={() => setTab("settings")}>
+                Settings
+              </button>
+            </div>
+          </div>
+        ) : null}
+
         {tab === "chat" ? (
           <div className="chat-layout">
             <header className="header">
               <div>
                 <h2>{currentConversation?.title || "Chat"}</h2>
-                <p>Loaded {stats.loaded}/{stats.total} messages | tokens {stats.tokenTotal} | chars {stats.textChars}</p>
-                <p>Provider: {activeProviderLabel}</p>
-                <p>Model: {activeModelLabel}</p>
-                <p>{settingsModeLabel}</p>
-                <p>
-                  Context budget: max_context_tokens {activeContextTokensLabel} | max_recent_messages{" "}
-                  {activeRecentMessagesLabel} | max_memory_items {activeMemoryItemsLabel}
-                </p>
-                <p>Conversation system prompt: {activeSystemPromptLabel}</p>
-                <p>DeepSeek thinking: {activeThinkingLabel} | reasoning_effort: {activeReasoningEffortLabel}</p>
+                {!headerInfoCollapsed ? (
+                  <>
+                    <p>Loaded {stats.loaded}/{stats.total} messages | tokens {stats.tokenTotal} | chars {stats.textChars}</p>
+                    <p>Provider: {activeProviderLabel}</p>
+                    <p>Model: {activeModelLabel}</p>
+                    <p>{settingsModeLabel}</p>
+                    <p>
+                      Context budget: max_context_tokens {activeContextTokensLabel} | max_recent_messages{" "}
+                      {activeRecentMessagesLabel} | max_memory_items {activeMemoryItemsLabel}
+                    </p>
+                    <p>Conversation system prompt: {activeSystemPromptLabel}</p>
+                    <p>DeepSeek thinking: {activeThinkingLabel} | reasoning_effort: {activeReasoningEffortLabel}</p>
+                  </>
+                ) : (
+                  <p className="header-collapsed-tip">Info collapsed</p>
+                )}
               </div>
               <div className="header-actions">
+                <div className="header-toolbar-inline">
+                  <button className="btn btn-secondary" onClick={() => setSidebarCollapsed((v) => !v)}>
+                    {sidebarCollapsed ? "Show Sidebar" : "Hide Sidebar"}
+                  </button>
+                  <button className="btn-mini active" onClick={() => setTab("chat")}>
+                    Chat
+                  </button>
+                  <button
+                    className="btn-mini"
+                    onClick={() => {
+                      setTab("memories");
+                      void refreshMemories();
+                    }}
+                  >
+                    Memories
+                  </button>
+                  <button className="btn-mini" onClick={() => setTab("settings")}>
+                    Settings
+                  </button>
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => setHeaderInfoCollapsed((v) => !v)}
+                  >
+                    {headerInfoCollapsed ? "Show Info" : "Hide Info"}
+                  </button>
+                </div>
                 <button
                   className="btn btn-secondary"
                   onClick={() => void onApplyConversationPreset()}

@@ -28,6 +28,10 @@ npm.cmd run build
 - 系统提示词文本不在前端源码硬编码，按数据库中保存的会话/全局配置读取。
 - 长期记忆查看与手动 global/conversation 标记。
 - 当前会话 `.txt` 附件最小入口：上传、列表、删除。
+- 聊天页 UI 折叠优化：
+  - 侧边栏平滑折叠/展开（隐藏后聊天区自动扩展）。
+  - 顶部工具（侧栏开关/标签切换）与标题信息合并同栏。
+  - 顶部信息区支持 `Show Info / Hide Info`。
 
 ## 记忆来源显示（最小增强）
 - 记忆页显示：scope、importance、created_at、last_used_at。
